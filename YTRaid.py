@@ -91,7 +91,7 @@ class YouTubeVideoDownloader(QWidget):
 
         video_url = self.video_url_edit.text()
 
-        if not video_url.startswith('https://www.youtube.com/watch?v='):
+        if not video_url.startswith('https://'):
             self.message_handler.show_warning_signal.emit(
                 "Invalid Video URL",
                 "The video URL is not valid. Please enter a valid YouTube link."
@@ -108,15 +108,15 @@ class YouTubeVideoDownloader(QWidget):
                 # Define the desired resolutions
                 desired_resolutions = ["144p", "360p", "480p", "720p", "1080p"]
 
-                # Create a list to store unique resolutions
+                # Create a set to store unique resolutions
                 resolutions = set()
 
                 # Loop through the streams and add resolutions to the set
                 for stream in streams:
                     resolutions.add(stream.resolution)
 
-                # Include the desired resolutions and keep available quality
-                resolutions_list = sorted(list(resolutions.union(desired_resolutions)))
+                # Include only the desired resolutions
+                resolutions_list = sorted(list(resolutions.intersection(desired_resolutions)))
 
                 self.quality_comboBox.clear()
                 self.quality_comboBox.addItems(resolutions_list)
@@ -139,6 +139,14 @@ class YouTubeVideoDownloader(QWidget):
             return
 
         quality = self.quality_comboBox.currentText()
+
+        if not quality:
+            self.message_handler.show_warning_signal.emit(
+                "Invalid Quality",
+                "Please select a valid quality."
+            )
+            return
+
         download_path = self.download_path_label.text()
 
         try:
@@ -158,15 +166,7 @@ class YouTubeVideoDownloader(QWidget):
 def download_video(video_url, quality='highestres', output_dir='.'):
     try:
         youtube = pytube.YouTube(video_url)
-        streams = youtube.streams.filter(progressive=True, file_extension="mp4")
-        resolutions = set()
-        for stream in streams:
-            resolutions.add(stream.resolution)
-        resolutions_list = sorted(list(resolutions))
-        if not resolutions_list:
-            raise Exception("No video resolutions available.")
-        quality = resolutions_list[-1]  # Select the highest available resolution
-        stream = streams.filter(resolution=quality).first()
+        stream = youtube.streams.filter(progressive=True, resolution=quality, file_extension="mp4").first()
 
         if stream:
             stream.download(output_dir)
